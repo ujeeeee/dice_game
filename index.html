@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>PokerDice</title>
+    <link rel="stylesheet" href="style.css" />
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+</head>
+<body>
+    <div id="app">
+        <!-- ХЕДЕР -->
+        <div class="header">
+            <h1>🎲 PokerDice</h1>
+            <div class="header-buttons">
+                <button class="reset-btn" onclick="resetGame()">🔄</button>
+                <button class="help-btn" onclick="showHelp()">❓</button>
+            </div>
+        </div>
+
+        <!-- ИНФО -->
+        <div class="info-bar">
+            <span>Ход: <b id="turnNum">1</b>/16</span>
+            <span>Бросок: <b id="rollNum">1</b>/3</span>
+            <span>🎯 Счёт: <b id="totalScore">0</b></span>
+        </div>
+
+        <!-- ТАБЛИЦА -->
+        <div class="table-wrap" id="tableWrap"></div>
+
+        <!-- КУБИКИ -->
+        <div class="dice-area">
+            <div class="dice-container" id="diceContainer"></div>
+        </div>
+
+        <!-- КНОПКИ -->
+        <div class="btn-area">
+            <button class="btn-roll" id="rollBtn" onclick="rollDice()">🎲 КРУТИТЬ</button>
+        </div>
+    </div>
+
+    <!-- МОДАЛКА ПРАВИЛ -->
+    <div class="modal-overlay" id="helpModal">
+        <div class="modal">
+            <h2>📖 Правила</h2>
+            <p><b>Цель:</b> За 16 ходов закрыть все 16 комбинаций. Каждый ход — 3 броска.</p>
+            <p><b>Основная часть (1-6):</b></p>
+            <table>
+                <tr><td>3 кости</td><td>0</td></tr>
+                <tr><td>4 кости</td><td>+номинал</td></tr>
+                <tr><td>5 костей</td><td>+номинал×2</td></tr>
+                <tr><td>2 кости</td><td>-номинал</td></tr>
+                <tr><td>1 кость</td><td>-номинал×2</td></tr>
+                <tr><td>0 костей</td><td>-номинал×3</td></tr>
+            </table>
+            <p><b>Комбинации:</b></p>
+            <table>
+                <tr><td>Пара</td><td>сумма двух костей</td></tr>
+                <tr><td>2 пары</td><td>сумма всех 4-х</td></tr>
+                <tr><td>Сет</td><td>сумма трёх</td></tr>
+                <tr><td>3+2</td><td>сумма всех 5-ти</td></tr>
+                <tr><td>Каре</td><td>сумма четырёх</td></tr>
+                <tr><td>Малый стрит (1-5)</td><td>15</td></tr>
+                <tr><td>Большой стрит (2-6)</td><td>20</td></tr>
+                <tr><td>Чёт</td><td>сумма всех</td></tr>
+                <tr><td>Нечет</td><td>сумма всех</td></tr>
+                <tr><td>Покер</td><td>50 + сумма всех</td></tr>
+            </table>
+            <p><b>Бросок с руки:</b> если комбинация (кроме основной части) выпала с первого броска — очки удваиваются.</p>
+            <p>Если сумма основной части отрицательная → умножается на 10.</p>
+            <button class="close-btn" onclick="closeHelp()">Закрыть</button>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
