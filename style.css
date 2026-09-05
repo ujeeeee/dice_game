@@ -111,7 +111,7 @@ body {
     justify-content: space-between;
     padding: 6px 4px;
     border-bottom: 1px solid #252540;
-    font-size: 15px;
+    font-size: 13px;
     border-radius: 3px;
     transition: 0.15s;
     cursor: default;
@@ -119,14 +119,14 @@ body {
 
 .table-row .label {
     color: #a7a9be;
-    font-size: 14px;
+    font-size: 12px;
 }
 
 .table-row .value {
     font-weight: 600;
     min-width: 32px;
     text-align: right;
-    font-size: 14px;
+    font-size: 12px;
 }
 
 /* Закрытые комбинации — БЕЛЫМ */
