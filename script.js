@@ -209,18 +209,18 @@ function updateButtons() {
     }
     if (state.isRolling) {
         btn.disabled = true;
-        btn.textContent = '🌀 ...';
+        btn.textContent = '🌀';
         return;
     }
     if (state.rollCount === 3) {
         btn.disabled = true;
-        btn.textContent = '⛔ ВСЕ БРОСКИ';
+        btn.textContent = '⛔⛔⛔';
         return;
     }
     if (state.rollCount === 0) {
-        btn.textContent = '🎲 КРУТИТЬ';
+        btn.textContent = '🎲🎲🎲';
     } else {
-        btn.textContent = '🔄 ПЕРЕБРОСИТЬ';
+        btn.textContent = '🔄🔄🔄';
     }
     btn.disabled = false;
 }
