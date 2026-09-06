@@ -57,26 +57,63 @@ function renderTable() {
     const wrap = document.getElementById('tableWrap');
     let html = '';
 
-    MAIN_LABELS.forEach(label => {
-        html += rowHTML(label);
-    });
+    // Основная часть (слева) и Комбинации (справа)
+    const maxRows = Math.max(MAIN_LABELS.length + 1, COMBO_LABELS.length);
 
-    const mainSum = getMainSum();
-    html += `
-        <div class="table-row summary">
-            <span class="label">📊 Сумма 1-6</span>
-            <span class="value" id="mainSumDisplay">${mainSum}</span>
-        </div>
-        <div class="table-row divider"></div>
-    `;
+    for (let i = 0; i < maxRows; i++) {
+        let mainLabel = null;
+        let comboLabel = null;
+        let mainExtra = false;
 
-    COMBO_LABELS.forEach(label => {
-        html += rowHTML(label);
-    });
+        // Основная часть
+        if (i < MAIN_LABELS.length) {
+            mainLabel = MAIN_LABELS[i];
+        } else if (i === MAIN_LABELS.length) {
+            mainExtra = true; // Сумма 1-6
+        }
 
+        // Комбинации (без ИТОГО, оно будет отдельно)
+        if (i < COMBO_LABELS.length) {
+            comboLabel = COMBO_LABELS[i];
+        }
+
+        let mainHTML = '';
+        let comboHTML = '';
+
+        // Левая колонка
+        if (mainLabel) {
+            mainHTML = rowHTML(mainLabel);
+        } else if (mainExtra) {
+            const mainSum = getMainSum();
+            mainHTML = `
+                <div class="table-row-item summary">
+                    <span class="label">📊 Сумма 1-6</span>
+                    <span class="value" id="mainSumDisplay">${mainSum}</span>
+                </div>
+            `;
+        } else {
+            mainHTML = `<div class="table-row-item empty"></div>`;
+        }
+
+        // Правая колонка
+        if (comboLabel) {
+            comboHTML = rowHTML(comboLabel);
+        } else {
+            comboHTML = `<div class="table-row-item empty"></div>`;
+        }
+
+        html += `
+            <div class="table-row-group">
+                ${mainHTML}
+                ${comboHTML}
+            </div>
+        `;
+    }
+
+    // ИТОГО — на всю ширину
     const total = getTotal();
     html += `
-        <div class="table-row total">
+        <div class="table-row full-width">
             <span class="label">🏆 ИТОГО</span>
             <span class="value" id="totalDisplay">${total}</span>
         </div>
@@ -90,22 +127,23 @@ function rowHTML(label) {
     const isClosed = val !== null;
     const isNegative = isClosed && val < 0;
 
+    let cls = 'table-row-item';
     let displayVal;
-    let cls = 'table-row';
 
     if (isClosed) {
         displayVal = val;
         cls += isNegative ? ' closed-negative' : ' closed';
     } else {
-        const score = calculateScore(label);
+        // Проверяем, с руки ли бросок (rollCount === 1, т.е. первый бросок)
+        const isFromHand = (state.rollCount === 1);
+        const score = calculateScore(label, isFromHand);
         displayVal = (isNaN(score) || score === undefined) ? 0 : score;
         if (displayVal > 0) displayVal = '+' + displayVal;
-        
-        // Если комбинация доступна — оранжевый цвет
+
+        // Если доступна для нажатия — добавляем класс available
         if (state.available.includes(label) && state.rollCount > 0) {
             cls += ' available';
         }
-        // Если НЕ доступна — остаётся серым (стандартный цвет .value)
     }
 
     return `
@@ -205,7 +243,7 @@ function rollDice() {
         });
         renderDice();
         count++;
-        if (count > 8) {
+        if (count > 15) {
             clearInterval(interval);
             state.dice = state.dice.map((v, i) => {
                 if (state.selected[i]) return v;
@@ -240,13 +278,10 @@ function onRowClick(label) {
     if (state.isRolling || state.gameOver || state.rollCount === 0) return;
     if (state.scores[label] !== null) return;
 
-    let val;
-    if (state.available.includes(label)) {
-        val = calculateScore(label);
-        if (isNaN(val) || val === undefined) val = 0;
-    } else {
-        val = 0;
-    }
+    // Проверяем, с руки ли бросок (rollCount === 1)
+    const isFromHand = (state.rollCount === 1);
+    let val = calculateScore(label, isFromHand);
+    if (isNaN(val) || val === undefined) val = 0;
 
     state.scores[label] = val;
 
@@ -262,6 +297,7 @@ function onRowClick(label) {
 function getAvailableCombos() {
     const available = [];
 
+    // Основная часть (только если >=3 костей)
     MAIN_LABELS.forEach(label => {
         if (state.scores[label] !== null) return;
         const num = parseInt(label);
@@ -269,6 +305,7 @@ function getAvailableCombos() {
         if (count >= 3) available.push(label);
     });
 
+    // Комбинации
     const combos = checkCombos();
     COMBO_LABELS.forEach(label => {
         if (state.scores[label] !== null) return;
@@ -311,10 +348,10 @@ function checkCombos() {
     return result;
 }
 
-function calculateScore(label) {
+function calculateScore(label, isFromHand = false) {
     const dice = state.dice.slice();
 
-    // Основная часть
+    // Основная часть — НЕ УДВАИВАЕТСЯ
     if (MAIN_LABELS.includes(label)) {
         const num = parseInt(label);
         const count = dice.filter(d => d === num).length;
@@ -331,61 +368,79 @@ function calculateScore(label) {
     const freq = {};
     dice.forEach(d => { freq[d] = (freq[d] || 0) + 1; });
     const keys = Object.keys(freq).map(Number);
-    const values = Object.values(freq);
+
+    let score = 0;
 
     switch (label) {
         case 'Пара': {
             const k = keys.find(k => freq[k] >= 2);
             if (k === undefined) return 0;
-            return k * 2;
+            score = k * 2;
+            break;
         }
         case '2 пары': {
             const pairs = keys.filter(k => freq[k] >= 2);
             if (pairs.length < 2) return 0;
-            return pairs.reduce((a, b) => a + b, 0) * 2;
+            score = pairs.reduce((a, b) => a + b, 0) * 2;
+            break;
         }
         case 'Сет': {
             const k = keys.find(k => freq[k] >= 3);
             if (k === undefined) return 0;
-            return k * 3;
+            score = k * 3;
+            break;
         }
         case '3+2': {
             const has3 = keys.some(k => freq[k] === 3);
             const has2 = keys.some(k => freq[k] === 2);
             if (!has3 || !has2) return 0;
-            return dice.reduce((a, b) => a + b, 0);
+            score = dice.reduce((a, b) => a + b, 0);
+            break;
         }
         case 'Каре': {
             const k = keys.find(k => freq[k] >= 4);
             if (k === undefined) return 0;
-            return k * 4;
+            score = k * 4;
+            break;
         }
         case 'Малый стрит': {
             const sorted = dice.slice().sort();
-            if (sorted.join(',') === [1, 2, 3, 4, 5].join(',')) return 15;
-            return 0;
+            if (sorted.join(',') === [1, 2, 3, 4, 5].join(',')) score = 15;
+            else return 0;
+            break;
         }
         case 'Большой стрит': {
             const sorted = dice.slice().sort();
-            if (sorted.join(',') === [2, 3, 4, 5, 6].join(',')) return 20;
-            return 0;
+            if (sorted.join(',') === [2, 3, 4, 5, 6].join(',')) score = 20;
+            else return 0;
+            break;
         }
         case 'Чёт': {
-            if (dice.every(d => d % 2 === 0)) return dice.reduce((a, b) => a + b, 0);
-            return 0;
+            if (dice.every(d => d % 2 === 0)) score = dice.reduce((a, b) => a + b, 0);
+            else return 0;
+            break;
         }
         case 'Нечет': {
-            if (dice.every(d => d % 2 === 1)) return dice.reduce((a, b) => a + b, 0);
-            return 0;
+            if (dice.every(d => d % 2 === 1)) score = dice.reduce((a, b) => a + b, 0);
+            else return 0;
+            break;
         }
         case 'Покер': {
             const k = keys.find(k => freq[k] === 5);
             if (k === undefined) return 0;
-            return 50 + k * 5;
+            score = 50 + k * 5;
+            break;
         }
         default:
             return 0;
     }
+
+    // Если комбинация из второй части и с руки — УДВАИВАЕМ
+    if (isFromHand && !MAIN_LABELS.includes(label)) {
+        score *= 2;
+    }
+
+    return score;
 }
 
 function getMainSum() {
