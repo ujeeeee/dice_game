@@ -112,7 +112,6 @@ function savePlayerState(index) {
     const player = game.players[index];
     player.scores = { ...state.scores };
     player.turn = state.turn;
-    player.finished = state.gameOver;
 }
 
 // ==========================================
@@ -121,14 +120,14 @@ function savePlayerState(index) {
 
 function endTurn() {
     if (state.isRolling) return;
-    if (state.gameOver) return;
-
+    
     savePlayerState(game.currentPlayerIndex);
 
-    const allClosed = MAIN_LABELS.every(l => state.scores[l] !== null) &&
-        COMBO_LABELS.every(l => state.scores[l] !== null);
-    if (allClosed || state.turn > 16) {
-        game.players[game.currentPlayerIndex].finished = true;
+    const player = game.players[game.currentPlayerIndex];
+    const allClosed = MAIN_LABELS.every(l => player.scores[l] !== null) &&
+        COMBO_LABELS.every(l => player.scores[l] !== null);
+    if (allClosed || player.turn > 16) {
+        player.finished = true;
     }
 
     let nextIndex = game.currentPlayerIndex;
@@ -189,7 +188,7 @@ function renderScoreboard() {
         html += `<tr><td>${label}</td>`;
         game.players.forEach((p, idx) => {
             const val = p.scores[label];
-            const isCurrent = idx === game.currentPlayerIndex;
+            const isCurrent = idx === game.currentPlayerIndex && game.mode === 'game';
             const displayVal = val !== null ? val : '—';
             html += `<td${isCurrent ? ' class="current-player"' : ''}>${displayVal}</td>`;
         });
@@ -199,7 +198,7 @@ function renderScoreboard() {
     html += `<tr><td>📊 Сумма</td>`;
     game.players.forEach((p, idx) => {
         const sum = getMainSumForPlayer(p);
-        const isCurrent = idx === game.currentPlayerIndex;
+        const isCurrent = idx === game.currentPlayerIndex && game.mode === 'game';
         html += `<td${isCurrent ? ' class="current-player"' : ''}>${sum}</td>`;
     });
     html += `</tr>`;
@@ -208,7 +207,7 @@ function renderScoreboard() {
         html += `<tr><td>${label}</td>`;
         game.players.forEach((p, idx) => {
             const val = p.scores[label];
-            const isCurrent = idx === game.currentPlayerIndex;
+            const isCurrent = idx === game.currentPlayerIndex && game.mode === 'game';
             const displayVal = val !== null ? val : '—';
             html += `<td${isCurrent ? ' class="current-player"' : ''}>${displayVal}</td>`;
         });
@@ -218,7 +217,7 @@ function renderScoreboard() {
     html += `<tr class="total-row"><td>🏆 ИТОГО</td>`;
     game.players.forEach((p, idx) => {
         const total = getTotalForPlayer(p);
-        const isCurrent = idx === game.currentPlayerIndex;
+        const isCurrent = idx === game.currentPlayerIndex && game.mode === 'game';
         html += `<td${isCurrent ? ' class="current-player"' : ''}>${total}</td>`;
     });
     html += `</tr>`;
@@ -252,39 +251,28 @@ function getTotalForPlayer(player) {
 
 function showResults() {
     game.mode = 'results';
+    state.gameOver = true;
     
     savePlayerState(game.currentPlayerIndex);
 
-    const container = document.getElementById('resultsContent');
+    // Используем ту же таблицу, что и промежуточная
+    renderScoreboard();
     
-    const sorted = game.players.map((p, idx) => ({
-        ...p,
-        index: idx,
-        total: getTotalForPlayer(p),
-    })).sort((a, b) => b.total - a.total);
-
-    const medals = ['🥇', '🥈', '🥉'];
-
-    let html = '';
-    sorted.forEach((p, idx) => {
-        const medal = idx < 3 ? medals[idx] : `${idx + 1}.`;
-        const isWinner = idx === 0;
-        html += `
-            <div class="result-item ${isWinner ? 'winner' : ''}">
-                <span class="place">${medal}</span>
-                <span class="name">${p.name}</span>
-                <span class="score">${p.total} очков</span>
-            </div>
-        `;
-    });
-
-    container.innerHTML = html;
-    document.getElementById('resultsModal').classList.add('open');
-}
-
-function closeResults() {
-    document.getElementById('resultsModal').classList.remove('open');
-    resetGame();
+    // Показываем модалку с таблицей и заголовком "Результаты"
+    document.getElementById('scoreboardModal').classList.add('open');
+    
+    // Меняем заголовок на "🏆 Результаты игры"
+    document.querySelector('#scoreboardModal h2').textContent = '🏆 Результаты игры';
+    
+    // Скрываем кнопку "Закрыть" в таблице результатов и показываем "Играть снова"
+    const closeBtn = document.querySelector('#scoreboardModal .close-btn');
+    closeBtn.textContent = '🔄 Играть снова';
+    closeBtn.onclick = function() {
+        document.getElementById('scoreboardModal').classList.remove('open');
+        resetGame();
+    };
+    
+    render();
 }
 
 // ==========================================
@@ -329,8 +317,8 @@ function renderPlayerName() {
     const el = document.getElementById('playerNameDisplay');
     if (game.mode === 'game' && game.players.length > 0) {
         const player = game.players[game.currentPlayerIndex];
-        const turnText = state.turn > 16 ? '🏁' : `${state.turn}/16`;
-        el.textContent = `🎲 ${player.name}  (${turnText})`;
+        // Убрали (turn/16) из имени
+        el.textContent = `🎲 ${player.name}`;
         el.style.display = 'block';
     } else {
         el.style.display = 'none';
@@ -488,14 +476,9 @@ function renderInfo() {
 
 function updateButtons() {
     const btn = document.getElementById('rollBtn');
-    if (game.mode !== 'game') {
+    if (game.mode !== 'game' || state.gameOver) {
         btn.disabled = true;
-        btn.textContent = '⏳ Ожидание...';
-        return;
-    }
-    if (state.gameOver) {
-        btn.disabled = true;
-        btn.textContent = '🏁 КОНЕЦ';
+        btn.textContent = state.gameOver ? '🏁 КОНЕЦ' : '⏳ Ожидание...';
         return;
     }
     if (state.isRolling) {
@@ -559,7 +542,6 @@ function rollDice() {
             }
 
             render();
-            checkGameOver();
         }
     }, 60);
 }
@@ -581,26 +563,15 @@ function onRowClick(label) {
     if (isNaN(val) || val === undefined) val = 0;
 
     state.scores[label] = val;
-
     state.available = [];
     state.selected = [false, false, false, false, false];
     state.rollCount = 0;
     state.turn++;
 
     savePlayerState(game.currentPlayerIndex);
-
     render();
 
-    const allClosed = MAIN_LABELS.every(l => state.scores[l] !== null) &&
-        COMBO_LABELS.every(l => state.scores[l] !== null);
-    if (allClosed || state.turn > 16) {
-        state.gameOver = true;
-        game.players[game.currentPlayerIndex].finished = true;
-        render();
-        setTimeout(() => endTurn(), 300);
-    } else {
-        setTimeout(() => endTurn(), 300);
-    }
+    setTimeout(() => endTurn(), 300);
 }
 
 function getAvailableCombos() {
@@ -678,7 +649,6 @@ function calculateScore(label, isFromHand = false) {
 
     switch (label) {
         case 'Пара': {
-            // Находим максимальную пару
             let maxK = 0;
             for (const k of keys) {
                 if (freq[k] >= 2 && k > maxK) {
@@ -690,28 +660,48 @@ function calculateScore(label, isFromHand = false) {
             break;
         }
         case '2 пары': {
-            const pairs = keys.filter(k => freq[k] >= 2);
+            const pairs = keys.filter(k => freq[k] >= 2).sort((a, b) => b - a);
             if (pairs.length < 2) return 0;
-            score = pairs.reduce((a, b) => a + b, 0) * 2;
+            const bestPairs = pairs.slice(0, 2);
+            score = bestPairs.reduce((a, b) => a + b, 0) * 2;
             break;
         }
         case 'Сет': {
-            const k = keys.find(k => freq[k] >= 3);
-            if (k === undefined) return 0;
-            score = k * 3;
+            let maxK = 0;
+            for (const k of keys) {
+                if (freq[k] >= 3 && k > maxK) {
+                    maxK = k;
+                }
+            }
+            if (maxK === 0) return 0;
+            score = maxK * 3;
             break;
         }
         case '3+2': {
-            const has3 = keys.some(k => freq[k] === 3);
-            const has2 = keys.some(k => freq[k] === 2);
-            if (!has3 || !has2) return 0;
-            score = dice.reduce((a, b) => a + b, 0);
+            let maxScore = 0;
+            for (const k3 of keys) {
+                if (freq[k3] >= 3) {
+                    for (const k2 of keys) {
+                        if (k2 !== k3 && freq[k2] >= 2) {
+                            const sum = k3 * 3 + k2 * 2;
+                            if (sum > maxScore) maxScore = sum;
+                        }
+                    }
+                }
+            }
+            if (maxScore === 0) return 0;
+            score = maxScore;
             break;
         }
         case 'Каре': {
-            const k = keys.find(k => freq[k] >= 4);
-            if (k === undefined) return 0;
-            score = k * 4;
+            let maxK = 0;
+            for (const k of keys) {
+                if (freq[k] >= 4 && k > maxK) {
+                    maxK = k;
+                }
+            }
+            if (maxK === 0) return 0;
+            score = maxK * 4;
             break;
         }
         case 'Малый стрит': {
@@ -778,23 +768,16 @@ function getTotal() {
     return total;
 }
 
-function checkGameOver() {
-    const allClosed = MAIN_LABELS.every(l => state.scores[l] !== null) &&
-        COMBO_LABELS.every(l => state.scores[l] !== null);
-
-    if (allClosed || state.turn > 16) {
-        state.gameOver = true;
-        state.rollCount = 3;
-        document.getElementById('rollBtn').disabled = true;
-        document.getElementById('rollBtn').textContent = '🏁 КОНЕЦ';
-        
-        savePlayerState(game.currentPlayerIndex);
-        render();
-    }
-}
-
 function resetGame() {
     if (!confirm('Начать новую игру?')) return;
+    
+    // Восстанавливаем заголовок для промежуточной таблицы
+    document.querySelector('#scoreboardModal h2').textContent = '📊 Все игроки';
+    
+    // Восстанавливаем кнопку закрытия
+    const closeBtn = document.querySelector('#scoreboardModal .close-btn');
+    closeBtn.textContent = 'Закрыть';
+    closeBtn.onclick = closeScoreboard;
     
     game = {
         mode: 'setup',
@@ -803,8 +786,8 @@ function resetGame() {
         showScoreboard: false,
     };
     
-    document.getElementById('resultsModal').classList.remove('open');
     document.getElementById('scoreboardModal').classList.remove('open');
+    document.getElementById('resultsModal').classList.remove('open');
     
     initState();
     render();
