@@ -7,7 +7,7 @@ const COMBO_LABELS = ['Пара', '2 пары', 'Сет', '3+2', 'Каре', 'М
 
 let state = {
     scores: {},
-    dice: [1, 2, 3, 4, 5],
+    dice: ['P', 'O', 'K', 'E', 'R'],
     selected: [false, false, false, false, false],
     rollCount: 0,
     turn: 1,
@@ -24,7 +24,7 @@ function initState() {
     state.scores = {};
     MAIN_LABELS.forEach(l => state.scores[l] = null);
     COMBO_LABELS.forEach(l => state.scores[l] = null);
-    state.dice = [1, 2, 3, 4, 5];
+    state.dice = ['P', 'O', 'K', 'E', 'R'];
     state.selected = [false, false, false, false, false];
     state.rollCount = 0;
     state.turn = 1;
@@ -134,11 +134,15 @@ function rowHTML(label) {
         displayVal = val;
         cls += isNegative ? ' closed-negative' : ' closed';
     } else {
-        // Проверяем, с руки ли бросок (rollCount === 1, т.е. первый бросок)
-        const isFromHand = (state.rollCount === 1);
-        const score = calculateScore(label, isFromHand);
-        displayVal = (isNaN(score) || score === undefined) ? 0 : score;
-        if (displayVal > 0) displayVal = '+' + displayVal;
+        // Показываем прочерк, если ещё не было броска (rollCount === 0)
+        if (state.rollCount === 0) {
+            displayVal = '—';
+        } else {
+            const isFromHand = (state.rollCount === 1);
+            const score = calculateScore(label, isFromHand);
+            displayVal = (isNaN(score) || score === undefined) ? 0 : score;
+            if (displayVal > 0) displayVal = '+' + displayVal;
+        }
 
         // Если доступна для нажатия — добавляем класс available
         if (state.available.includes(label) && state.rollCount > 0) {
@@ -170,6 +174,15 @@ function renderDice() {
 }
 
 function renderDieValue(val) {
+    // Если значение — буква из POKER
+    if (typeof val === 'string' && ['P', 'O', 'K', 'E', 'R'].includes(val)) {
+        return `<div class="dots" style="display:flex;justify-content:center;align-items:center;font-size:28px;font-weight:700;color:#ff8906;letter-spacing:2px;">${val}</div>`;
+    }
+    // Если значение 0 — пустой кубик
+    if (val === 0) {
+        return '<div class="dots" style="display:flex;justify-content:center;align-items:center;font-size:20px;color:#2a2a4a;">?</div>';
+    }
+    // Обычный кубик с точками
     const dots = getDots(val);
     let html = '<div class="dots">';
     for (let r = 0; r < 3; r++) {
@@ -209,18 +222,18 @@ function updateButtons() {
     }
     if (state.isRolling) {
         btn.disabled = true;
-        btn.textContent = '🌀';
+        btn.textContent = '🌀 ...';
         return;
     }
     if (state.rollCount === 3) {
         btn.disabled = true;
-        btn.textContent = '⛔⛔⛔';
+        btn.textContent = '⛔ ВСЕ БРОСКИ';
         return;
     }
     if (state.rollCount === 0) {
-        btn.textContent = '🎲🎲🎲';
+        btn.textContent = '🎲 КРУТИТЬ';
     } else {
-        btn.textContent = '🔄🔄🔄';
+        btn.textContent = '🔄 ПЕРЕБРОСИТЬ';
     }
     btn.disabled = false;
 }
@@ -231,6 +244,11 @@ function updateButtons() {
 
 function rollDice() {
     if (state.gameOver || state.isRolling || state.rollCount === 3) return;
+
+    // Если кубики содержат буквы POKER — заменяем на числа для броска
+    if (state.dice.every(d => typeof d === 'string')) {
+        state.dice = [1, 2, 3, 4, 5];
+    }
 
     state.isRolling = true;
     updateButtons();
@@ -437,7 +455,16 @@ function calculateScore(label, isFromHand = false) {
 
     // Если комбинация из второй части и с руки — УДВАИВАЕМ
     if (isFromHand && !MAIN_LABELS.includes(label)) {
-        score *= 2;
+        // Покер — удваиваем только сумму костей, 50 не трогаем
+        if (label === 'Покер') {
+            const k = keys.find(k => freq[k] === 5);
+            if (k !== undefined) {
+                score = 50 + k * 5 * 2;
+            }
+        } else {
+            // Все остальные комбинации — удваиваем полностью
+            score *= 2;
+        }
     }
 
     return score;
