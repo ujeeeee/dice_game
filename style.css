@@ -82,6 +82,33 @@ body {
     background: #2a2a4a;
 }
 
+.scoreboard-btn {
+    background: none;
+    border: 1px solid #2a2a4a;
+    color: #a7a9be;
+    padding: 2px 8px;
+    border-radius: 14px;
+    font-size: 14px;
+    cursor: pointer;
+    line-height: 1.5;
+}
+
+.scoreboard-btn:active {
+    background: #2a2a4a;
+}
+
+/* ===== ИМЯ ИГРОКА ===== */
+.player-name {
+    text-align: center;
+    font-size: 20px;
+    font-weight: 700;
+    color: #ff8906;
+    padding: 4px 0;
+    background: #1a1a2e;
+    border-radius: 10px;
+    flex-shrink: 0;
+}
+
 /* ===== ИНФО ===== */
 .info-bar {
     display: flex;
@@ -261,6 +288,7 @@ body {
 .btn-area {
     display: flex;
     justify-content: center;
+    gap: 10px;
     padding: 4px 0 4px;
     flex-shrink: 0;
 }
@@ -288,7 +316,7 @@ body {
     transform: none;
 }
 
-/* ===== МОДАЛКА ПРАВИЛ ===== */
+/* ===== МОДАЛКИ ===== */
 .modal-overlay {
     display: none;
     position: fixed;
@@ -296,11 +324,12 @@ body {
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(0, 0, 0, 0.7);
+    background: rgba(0, 0, 0, 0.8);
     z-index: 100;
     justify-content: center;
-    align-items: center;
+    align-items: flex-start;
     padding: 20px;
+    overflow-y: auto;
 }
 
 .modal-overlay.open {
@@ -310,18 +339,19 @@ body {
 .modal {
     background: #1a1a2e;
     border-radius: 16px;
-    padding: 20px;
+    padding: 24px;
     max-width: 400px;
     width: 100%;
-    max-height: 80vh;
+    max-height: 90vh;
     overflow-y: auto;
     border: 1px solid #2a2a4a;
 }
 
 .modal h2 {
     color: #ff8906;
-    font-size: 18px;
+    font-size: 20px;
     margin-bottom: 12px;
+    text-align: center;
 }
 
 .modal p {
@@ -335,12 +365,17 @@ body {
     background: #e94560;
     border: none;
     color: #fff;
-    padding: 8px 24px;
+    padding: 10px 24px;
     border-radius: 20px;
-    font-size: 14px;
+    font-size: 15px;
     cursor: pointer;
-    margin-top: 10px;
+    margin-top: 16px;
     width: 100%;
+    font-weight: 600;
+}
+
+.modal .close-btn:active {
+    opacity: 0.7;
 }
 
 .modal table {
@@ -359,6 +394,168 @@ body {
 .modal td:last-child {
     text-align: right;
     color: #fffffe;
+}
+
+/* ===== НАСТРОЙКА ===== */
+.setup-modal {
+    text-align: center;
+}
+
+.setup-players-count {
+    margin: 16px 0;
+}
+
+.setup-players-count label {
+    display: block;
+    color: #a7a9be;
+    font-size: 14px;
+    margin-bottom: 8px;
+}
+
+.players-count-buttons {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+}
+
+.count-btn {
+    background: #2a2a4a;
+    border: 2px solid transparent;
+    color: #fffffe;
+    font-size: 18px;
+    font-weight: 700;
+    padding: 8px 16px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: 0.15s;
+    min-width: 48px;
+}
+
+.count-btn.active {
+    border-color: #ff8906;
+    background: #3a3a5a;
+}
+
+.count-btn:active {
+    transform: scale(0.95);
+}
+
+.player-name-input {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 6px 0;
+    padding: 4px 8px;
+    background: #0f0e17;
+    border-radius: 8px;
+    border: 1px solid #2a2a4a;
+}
+
+.player-name-input label {
+    color: #a7a9be;
+    font-size: 14px;
+    font-weight: 600;
+    min-width: 20px;
+}
+
+.player-name-input input {
+    background: transparent;
+    border: none;
+    color: #fffffe;
+    font-size: 15px;
+    padding: 6px 4px;
+    flex: 1;
+    outline: none;
+}
+
+.player-name-input input::placeholder {
+    color: #4a4a6a;
+}
+
+.btn-start {
+    background: linear-gradient(135deg, #ff8906, #e94560);
+    border: none;
+    color: #fffffe;
+    font-size: 18px;
+    font-weight: 700;
+    padding: 14px 20px;
+    border-radius: 30px;
+    cursor: pointer;
+    transition: 0.15s;
+    width: 100%;
+    margin-top: 16px;
+    box-shadow: 0 4px 20px rgba(233, 69, 96, 0.3);
+}
+
+.btn-start:active {
+    transform: scale(0.97);
+}
+
+/* ===== ТАБЛИЦА ВСЕХ ИГРОКОВ ===== */
+.scoreboard-modal .scoreboard-table {
+    width: 100%;
+    font-size: 13px;
+    border-collapse: collapse;
+    margin: 12px 0;
+}
+
+.scoreboard-modal .scoreboard-table th {
+    color: #ff8906;
+    font-weight: 700;
+    padding: 6px 4px;
+    border-bottom: 1px solid #ff8906;
+    text-align: center;
+}
+
+.scoreboard-modal .scoreboard-table td {
+    color: #fffffe;
+    padding: 4px 4px;
+    border-bottom: 1px solid #252540;
+    text-align: center;
+}
+
+.scoreboard-modal .scoreboard-table .total-row td {
+    color: #ff8906;
+    font-weight: 700;
+    border-top: 2px solid #ff8906;
+}
+
+.scoreboard-modal .scoreboard-table .current-player td {
+    background: rgba(255, 137, 6, 0.15);
+}
+
+/* ===== РЕЗУЛЬТАТЫ ===== */
+.results-modal .result-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px 12px;
+    border-bottom: 1px solid #252540;
+    font-size: 16px;
+    align-items: center;
+}
+
+.results-modal .result-item .place {
+    font-size: 20px;
+    font-weight: 700;
+    color: #ff8906;
+    min-width: 40px;
+}
+
+.results-modal .result-item .name {
+    flex: 1;
+    color: #fffffe;
+    font-weight: 600;
+}
+
+.results-modal .result-item .score {
+    color: #ff8906;
+    font-weight: 700;
+    font-size: 18px;
+}
+
+.results-modal .result-item.winner {
+    background: rgba(255, 137, 6, 0.15);
+    border-radius: 8px;
 }
 
 /* ===== АДАПТИВ ===== */
@@ -408,6 +605,10 @@ body {
     }
     .table-row.full-width .value {
         font-size: 16px;
+    }
+    .player-name {
+        font-size: 17px;
+        padding: 3px 0;
     }
 }
 
@@ -465,5 +666,9 @@ body {
     .reset-btn {
         font-size: 12px;
         padding: 1px 6px;
+    }
+    .player-name {
+        font-size: 14px;
+        padding: 2px 0;
     }
 }

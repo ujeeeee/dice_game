@@ -5,6 +5,15 @@
 const MAIN_LABELS = ['1', '2', '3', '4', '5', '6'];
 const COMBO_LABELS = ['Пара', '2 пары', 'Сет', '3+2', 'Каре', 'Малый стрит', 'Большой стрит', 'Чёт', 'Нечет', 'Покер'];
 
+// Глобальное состояние
+let game = {
+    mode: 'setup', // 'setup' | 'game' | 'results'
+    players: [],
+    currentPlayerIndex: 0,
+    showScoreboard: false,
+};
+
+// Состояние текущего игрока (для отрисовки)
 let state = {
     scores: {},
     dice: ['P', 'O', 'K', 'E', 'R'],
@@ -14,7 +23,269 @@ let state = {
     gameOver: false,
     available: [],
     isRolling: false,
+    playerIndex: 0,
 };
+
+// ==========================================
+// ===== НАСТРОЙКА ИГРЫ =====
+// ==========================================
+
+let playersCount = 2;
+
+function setPlayersCount(count) {
+    playersCount = count;
+    document.querySelectorAll('.count-btn').forEach(btn => {
+        btn.classList.toggle('active', parseInt(btn.dataset.count) === count);
+    });
+    renderPlayerInputs();
+}
+
+function renderPlayerInputs() {
+    const container = document.getElementById('playersNamesContainer');
+    let html = '';
+    for (let i = 1; i <= playersCount; i++) {
+        const defaultName = `Игрок ${i}`;
+        html += `
+            <div class="player-name-input">
+                <label>${i}.</label>
+                <input type="text" id="playerName${i}" placeholder="${defaultName}" value="${defaultName}" maxlength="15" />
+            </div>
+        `;
+    }
+    container.innerHTML = html;
+}
+
+function getPlayerNames() {
+    const names = [];
+    for (let i = 1; i <= playersCount; i++) {
+        const input = document.getElementById(`playerName${i}`);
+        names.push(input.value.trim() || `Игрок ${i}`);
+    }
+    return names;
+}
+
+function startMultiplayerGame() {
+    const names = getPlayerNames();
+    
+    const uniqueNames = new Set(names);
+    if (uniqueNames.size !== names.length) {
+        alert('❌ Имена игроков не должны повторяться!');
+        return;
+    }
+
+    game.players = names.map(name => ({
+        name: name,
+        scores: {},
+        turn: 1,
+        finished: false,
+    }));
+
+    game.players.forEach(p => {
+        MAIN_LABELS.forEach(l => p.scores[l] = null);
+        COMBO_LABELS.forEach(l => p.scores[l] = null);
+    });
+
+    game.currentPlayerIndex = 0;
+    game.mode = 'game';
+    game.showScoreboard = false;
+
+    document.getElementById('setupModal').classList.remove('open');
+
+    loadPlayerState(0);
+    render();
+}
+
+function loadPlayerState(index) {
+    const player = game.players[index];
+    state.scores = { ...player.scores };
+    state.dice = ['P', 'O', 'K', 'E', 'R'];
+    state.selected = [false, false, false, false, false];
+    state.rollCount = 0;
+    state.turn = player.turn;
+    state.gameOver = false;
+    state.available = [];
+    state.isRolling = false;
+    state.playerIndex = index;
+}
+
+function savePlayerState(index) {
+    const player = game.players[index];
+    player.scores = { ...state.scores };
+    player.turn = state.turn;
+    player.finished = state.gameOver;
+}
+
+// ==========================================
+// ===== ПЕРЕКЛЮЧЕНИЕ ИГРОКОВ =====
+// ==========================================
+
+function endTurn() {
+    if (state.isRolling) return;
+    if (state.gameOver) return;
+
+    savePlayerState(game.currentPlayerIndex);
+
+    const allClosed = MAIN_LABELS.every(l => state.scores[l] !== null) &&
+        COMBO_LABELS.every(l => state.scores[l] !== null);
+    if (allClosed || state.turn > 16) {
+        game.players[game.currentPlayerIndex].finished = true;
+    }
+
+    let nextIndex = game.currentPlayerIndex;
+    let found = false;
+    for (let i = 1; i <= game.players.length; i++) {
+        const idx = (game.currentPlayerIndex + i) % game.players.length;
+        if (!game.players[idx].finished) {
+            nextIndex = idx;
+            found = true;
+            break;
+        }
+    }
+
+    if (!found) {
+        showResults();
+        return;
+    }
+
+    game.currentPlayerIndex = nextIndex;
+    loadPlayerState(nextIndex);
+    render();
+}
+
+// ==========================================
+// ===== ТАБЛИЦА ВСЕХ ИГРОКОВ =====
+// ==========================================
+
+function toggleScoreboard() {
+    game.showScoreboard = !game.showScoreboard;
+    if (game.showScoreboard) {
+        renderScoreboard();
+        document.getElementById('scoreboardModal').classList.add('open');
+    } else {
+        document.getElementById('scoreboardModal').classList.remove('open');
+    }
+}
+
+function closeScoreboard() {
+    game.showScoreboard = false;
+    document.getElementById('scoreboardModal').classList.remove('open');
+}
+
+function renderScoreboard() {
+    const container = document.getElementById('scoreboardContent');
+    
+    let html = `
+        <table class="scoreboard-table">
+            <thead>
+                <tr>
+                    <th>Комбинация</th>
+                    ${game.players.map(p => `<th>${p.name}</th>`).join('')}
+                </tr>
+            </thead>
+            <tbody>
+    `;
+
+    MAIN_LABELS.forEach(label => {
+        html += `<tr><td>${label}</td>`;
+        game.players.forEach((p, idx) => {
+            const val = p.scores[label];
+            const isCurrent = idx === game.currentPlayerIndex;
+            const displayVal = val !== null ? val : '—';
+            html += `<td${isCurrent ? ' class="current-player"' : ''}>${displayVal}</td>`;
+        });
+        html += `</tr>`;
+    });
+
+    html += `<tr><td>📊 Сумма</td>`;
+    game.players.forEach((p, idx) => {
+        const sum = getMainSumForPlayer(p);
+        const isCurrent = idx === game.currentPlayerIndex;
+        html += `<td${isCurrent ? ' class="current-player"' : ''}>${sum}</td>`;
+    });
+    html += `</tr>`;
+
+    COMBO_LABELS.forEach(label => {
+        html += `<tr><td>${label}</td>`;
+        game.players.forEach((p, idx) => {
+            const val = p.scores[label];
+            const isCurrent = idx === game.currentPlayerIndex;
+            const displayVal = val !== null ? val : '—';
+            html += `<td${isCurrent ? ' class="current-player"' : ''}>${displayVal}</td>`;
+        });
+        html += `</tr>`;
+    });
+
+    html += `<tr class="total-row"><td>🏆 ИТОГО</td>`;
+    game.players.forEach((p, idx) => {
+        const total = getTotalForPlayer(p);
+        const isCurrent = idx === game.currentPlayerIndex;
+        html += `<td${isCurrent ? ' class="current-player"' : ''}>${total}</td>`;
+    });
+    html += `</tr>`;
+
+    html += `</tbody></table>`;
+
+    container.innerHTML = html;
+}
+
+function getMainSumForPlayer(player) {
+    let sum = 0;
+    MAIN_LABELS.forEach(label => {
+        const val = player.scores[label];
+        if (val !== null) sum += val;
+    });
+    return sum < 0 ? sum * 10 : sum;
+}
+
+function getTotalForPlayer(player) {
+    let total = getMainSumForPlayer(player);
+    COMBO_LABELS.forEach(label => {
+        const val = player.scores[label];
+        if (val !== null) total += val;
+    });
+    return total;
+}
+
+// ==========================================
+// ===== РЕЗУЛЬТАТЫ =====
+// ==========================================
+
+function showResults() {
+    game.mode = 'results';
+    
+    savePlayerState(game.currentPlayerIndex);
+
+    const container = document.getElementById('resultsContent');
+    
+    const sorted = game.players.map((p, idx) => ({
+        ...p,
+        index: idx,
+        total: getTotalForPlayer(p),
+    })).sort((a, b) => b.total - a.total);
+
+    const medals = ['🥇', '🥈', '🥉'];
+
+    let html = '';
+    sorted.forEach((p, idx) => {
+        const medal = idx < 3 ? medals[idx] : `${idx + 1}.`;
+        const isWinner = idx === 0;
+        html += `
+            <div class="result-item ${isWinner ? 'winner' : ''}">
+                <span class="place">${medal}</span>
+                <span class="name">${p.name}</span>
+                <span class="score">${p.total} очков</span>
+            </div>
+        `;
+    });
+
+    container.innerHTML = html;
+    document.getElementById('resultsModal').classList.add('open');
+}
+
+function closeResults() {
+    document.getElementById('resultsModal').classList.remove('open');
+    resetGame();
+}
 
 // ==========================================
 // ===== ИНИЦИАЛИЗАЦИЯ =====
@@ -51,13 +322,25 @@ function render() {
     renderDice();
     renderInfo();
     updateButtons();
+    renderPlayerName();
+}
+
+function renderPlayerName() {
+    const el = document.getElementById('playerNameDisplay');
+    if (game.mode === 'game' && game.players.length > 0) {
+        const player = game.players[game.currentPlayerIndex];
+        const turnText = state.turn > 16 ? '🏁' : `${state.turn}/16`;
+        el.textContent = `🎲 ${player.name}  (${turnText})`;
+        el.style.display = 'block';
+    } else {
+        el.style.display = 'none';
+    }
 }
 
 function renderTable() {
     const wrap = document.getElementById('tableWrap');
     let html = '';
 
-    // Основная часть (слева) и Комбинации (справа)
     const maxRows = Math.max(MAIN_LABELS.length + 1, COMBO_LABELS.length);
 
     for (let i = 0; i < maxRows; i++) {
@@ -65,14 +348,12 @@ function renderTable() {
         let comboLabel = null;
         let mainExtra = false;
 
-        // Основная часть
         if (i < MAIN_LABELS.length) {
             mainLabel = MAIN_LABELS[i];
         } else if (i === MAIN_LABELS.length) {
-            mainExtra = true; // Сумма 1-6
+            mainExtra = true;
         }
 
-        // Комбинации (без ИТОГО, оно будет отдельно)
         if (i < COMBO_LABELS.length) {
             comboLabel = COMBO_LABELS[i];
         }
@@ -80,7 +361,6 @@ function renderTable() {
         let mainHTML = '';
         let comboHTML = '';
 
-        // Левая колонка
         if (mainLabel) {
             mainHTML = rowHTML(mainLabel);
         } else if (mainExtra) {
@@ -95,7 +375,6 @@ function renderTable() {
             mainHTML = `<div class="table-row-item empty"></div>`;
         }
 
-        // Правая колонка
         if (comboLabel) {
             comboHTML = rowHTML(comboLabel);
         } else {
@@ -110,7 +389,6 @@ function renderTable() {
         `;
     }
 
-    // ИТОГО — на всю ширину
     const total = getTotal();
     html += `
         <div class="table-row full-width">
@@ -134,7 +412,6 @@ function rowHTML(label) {
         displayVal = val;
         cls += isNegative ? ' closed-negative' : ' closed';
     } else {
-        // Показываем прочерк, если ещё не было броска (rollCount === 0)
         if (state.rollCount === 0) {
             displayVal = '—';
         } else {
@@ -144,7 +421,6 @@ function rowHTML(label) {
             if (displayVal > 0) displayVal = '+' + displayVal;
         }
 
-        // Если доступна для нажатия — добавляем класс available
         if (state.available.includes(label) && state.rollCount > 0) {
             cls += ' available';
         }
@@ -174,15 +450,12 @@ function renderDice() {
 }
 
 function renderDieValue(val) {
-    // Если значение — буква из POKER
     if (typeof val === 'string' && ['P', 'O', 'K', 'E', 'R'].includes(val)) {
         return `<div class="dots" style="display:flex;justify-content:center;align-items:center;font-size:28px;font-weight:700;color:#ff8906;letter-spacing:2px;">${val}</div>`;
     }
-    // Если значение 0 — пустой кубик
     if (val === 0) {
         return '<div class="dots" style="display:flex;justify-content:center;align-items:center;font-size:20px;color:#2a2a4a;">?</div>';
     }
-    // Обычный кубик с точками
     const dots = getDots(val);
     let html = '<div class="dots">';
     for (let r = 0; r < 3; r++) {
@@ -215,6 +488,11 @@ function renderInfo() {
 
 function updateButtons() {
     const btn = document.getElementById('rollBtn');
+    if (game.mode !== 'game') {
+        btn.disabled = true;
+        btn.textContent = '⏳ Ожидание...';
+        return;
+    }
     if (state.gameOver) {
         btn.disabled = true;
         btn.textContent = '🏁 КОНЕЦ';
@@ -222,18 +500,18 @@ function updateButtons() {
     }
     if (state.isRolling) {
         btn.disabled = true;
-        btn.textContent = '🌀 ...';
+        btn.textContent = '🌀🌀🌀';
         return;
     }
     if (state.rollCount === 3) {
         btn.disabled = true;
-        btn.textContent = '⛔ ВСЕ БРОСКИ';
+        btn.textContent = '⛔⛔⛔';
         return;
     }
     if (state.rollCount === 0) {
-        btn.textContent = '🎲 КРУТИТЬ';
+        btn.textContent = '🎲🎲🎲';
     } else {
-        btn.textContent = '🔄 ПЕРЕБРОСИТЬ';
+        btn.textContent = '🔄🔄🔄';
     }
     btn.disabled = false;
 }
@@ -243,9 +521,9 @@ function updateButtons() {
 // ==========================================
 
 function rollDice() {
+    if (game.mode !== 'game') return;
     if (state.gameOver || state.isRolling || state.rollCount === 3) return;
 
-    // Если кубики содержат буквы POKER — заменяем на числа для броска
     if (state.dice.every(d => typeof d === 'string')) {
         state.dice = [1, 2, 3, 4, 5];
     }
@@ -288,15 +566,16 @@ function rollDice() {
 
 function onDieClick(index) {
     if (state.isRolling || state.rollCount === 0 || state.rollCount === 3 || state.gameOver) return;
+    if (game.mode !== 'game') return;
     state.selected[index] = !state.selected[index];
     renderDice();
 }
 
 function onRowClick(label) {
     if (state.isRolling || state.gameOver || state.rollCount === 0) return;
+    if (game.mode !== 'game') return;
     if (state.scores[label] !== null) return;
 
-    // Проверяем, с руки ли бросок (rollCount === 1)
     const isFromHand = (state.rollCount === 1);
     let val = calculateScore(label, isFromHand);
     if (isNaN(val) || val === undefined) val = 0;
@@ -308,14 +587,25 @@ function onRowClick(label) {
     state.rollCount = 0;
     state.turn++;
 
+    savePlayerState(game.currentPlayerIndex);
+
     render();
-    checkGameOver();
+
+    const allClosed = MAIN_LABELS.every(l => state.scores[l] !== null) &&
+        COMBO_LABELS.every(l => state.scores[l] !== null);
+    if (allClosed || state.turn > 16) {
+        state.gameOver = true;
+        game.players[game.currentPlayerIndex].finished = true;
+        render();
+        setTimeout(() => endTurn(), 300);
+    } else {
+        setTimeout(() => endTurn(), 300);
+    }
 }
 
 function getAvailableCombos() {
     const available = [];
 
-    // Основная часть (только если >=3 костей)
     MAIN_LABELS.forEach(label => {
         if (state.scores[label] !== null) return;
         const num = parseInt(label);
@@ -323,7 +613,6 @@ function getAvailableCombos() {
         if (count >= 3) available.push(label);
     });
 
-    // Комбинации
     const combos = checkCombos();
     COMBO_LABELS.forEach(label => {
         if (state.scores[label] !== null) return;
@@ -369,7 +658,6 @@ function checkCombos() {
 function calculateScore(label, isFromHand = false) {
     const dice = state.dice.slice();
 
-    // Основная часть — НЕ УДВАИВАЕТСЯ
     if (MAIN_LABELS.includes(label)) {
         const num = parseInt(label);
         const count = dice.filter(d => d === num).length;
@@ -382,7 +670,6 @@ function calculateScore(label, isFromHand = false) {
         return 0;
     }
 
-    // Комбинации
     const freq = {};
     dice.forEach(d => { freq[d] = (freq[d] || 0) + 1; });
     const keys = Object.keys(freq).map(Number);
@@ -391,9 +678,15 @@ function calculateScore(label, isFromHand = false) {
 
     switch (label) {
         case 'Пара': {
-            const k = keys.find(k => freq[k] >= 2);
-            if (k === undefined) return 0;
-            score = k * 2;
+            // Находим максимальную пару
+            let maxK = 0;
+            for (const k of keys) {
+                if (freq[k] >= 2 && k > maxK) {
+                    maxK = k;
+                }
+            }
+            if (maxK === 0) return 0;
+            score = maxK * 2;
             break;
         }
         case '2 пары': {
@@ -453,16 +746,13 @@ function calculateScore(label, isFromHand = false) {
             return 0;
     }
 
-    // Если комбинация из второй части и с руки — УДВАИВАЕМ
     if (isFromHand && !MAIN_LABELS.includes(label)) {
-        // Покер — удваиваем только сумму костей, 50 не трогаем
         if (label === 'Покер') {
             const k = keys.find(k => freq[k] === 5);
             if (k !== undefined) {
                 score = 50 + k * 5 * 2;
             }
         } else {
-            // Все остальные комбинации — удваиваем полностью
             score *= 2;
         }
     }
@@ -497,16 +787,32 @@ function checkGameOver() {
         state.rollCount = 3;
         document.getElementById('rollBtn').disabled = true;
         document.getElementById('rollBtn').textContent = '🏁 КОНЕЦ';
-        setTimeout(() => {
-            alert('🎉 Игра окончена!\nИтоговый счёт: ' + getTotal());
-        }, 300);
+        
+        savePlayerState(game.currentPlayerIndex);
+        render();
     }
 }
 
 function resetGame() {
     if (!confirm('Начать новую игру?')) return;
+    
+    game = {
+        mode: 'setup',
+        players: [],
+        currentPlayerIndex: 0,
+        showScoreboard: false,
+    };
+    
+    document.getElementById('resultsModal').classList.remove('open');
+    document.getElementById('scoreboardModal').classList.remove('open');
+    
     initState();
     render();
+    
+    document.getElementById('setupModal').classList.add('open');
+    
+    document.getElementById('rollBtn').disabled = false;
+    document.getElementById('rollBtn').textContent = '🎲🎲🎲';
 }
 
 // ==========================================
@@ -530,4 +836,10 @@ document.getElementById('helpModal').addEventListener('click', function(e) {
 // ==========================================
 
 initState();
+
+document.getElementById('setupModal').classList.add('open');
+
+document.querySelector('.count-btn[data-count="2"]').classList.add('active');
+renderPlayerInputs();
+
 render();

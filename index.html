@@ -14,16 +14,20 @@
             <h1>🎲 PokerDice</h1>
             <div class="header-buttons">
                 <button class="reset-btn" onclick="resetGame()">🔄</button>
+                <button class="scoreboard-btn" onclick="toggleScoreboard()">📊</button>
                 <button class="help-btn" onclick="showHelp()">❓</button>
             </div>
         </div>
 
         <!-- ИНФО -->
-        <div class="info-bar">
+        <div class="info-bar" id="infoBar">
             <span>Ход: <b id="turnNum">1</b>/16</span>
             <span>Бросок: <b id="rollNum">1</b>/3</span>
             <span>🎯 Счёт: <b id="totalScore">0</b></span>
         </div>
+
+        <!-- ИМЯ ТЕКУЩЕГО ИГРОКА -->
+        <div class="player-name" id="playerNameDisplay">🎲 Игрок</div>
 
         <!-- ТАБЛИЦА -->
         <div class="table-wrap" id="tableWrap"></div>
@@ -35,7 +39,51 @@
 
         <!-- КНОПКИ -->
         <div class="btn-area">
-            <button class="btn-roll" id="rollBtn" onclick="rollDice()">🎲 КРУТИТЬ</button>
+            <button class="btn-roll" id="rollBtn" onclick="rollDice()">🎲🎲🎲</button>
+        </div>
+    </div>
+
+    <!-- ЭКРАН НАСТРОЙКИ -->
+    <div class="modal-overlay" id="setupModal">
+        <div class="modal setup-modal">
+            <h2>🎲 PokerDice</h2>
+            <p style="color:#a7a9be;font-size:14px;text-align:center;margin-bottom:16px;">
+                Настройте игру и добавьте игроков
+            </p>
+
+            <div class="setup-players-count">
+                <label>Количество игроков:</label>
+                <div class="players-count-buttons">
+                    <button class="count-btn" data-count="2" onclick="setPlayersCount(2)">2</button>
+                    <button class="count-btn" data-count="3" onclick="setPlayersCount(3)">3</button>
+                    <button class="count-btn" data-count="4" onclick="setPlayersCount(4)">4</button>
+                    <button class="count-btn" data-count="5" onclick="setPlayersCount(5)">5</button>
+                </div>
+            </div>
+
+            <div id="playersNamesContainer">
+                <!-- Имена игроков будут генерироваться здесь -->
+            </div>
+
+            <button class="btn-start" onclick="startMultiplayerGame()">🚀 Начать игру</button>
+        </div>
+    </div>
+
+    <!-- МОДАЛКА ПРОМЕЖУТОЧНОЙ ТАБЛИЦЫ -->
+    <div class="modal-overlay" id="scoreboardModal">
+        <div class="modal scoreboard-modal">
+            <h2>📊 Все игроки</h2>
+            <div id="scoreboardContent"></div>
+            <button class="close-btn" onclick="closeScoreboard()">Закрыть</button>
+        </div>
+    </div>
+
+    <!-- МОДАЛКА РЕЗУЛЬТАТОВ -->
+    <div class="modal-overlay" id="resultsModal">
+        <div class="modal results-modal">
+            <h2>🏆 Результаты игры</h2>
+            <div id="resultsContent"></div>
+            <button class="close-btn" onclick="closeResults()">🔄 Играть снова</button>
         </div>
     </div>
 
